@@ -1,0 +1,747 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ParaMedix - Hospital Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --accent: #e74c3c;
+            --light: #ecf0f1;
+            --dark: #2c3e50;
+            --success: #2ecc71;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+        }
+        #map {
+            height: 16rem;
+            width: 100%;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden; /* This prevents content from overflowing */
+            position: relative; /* Needed for proper containment */
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+        }
+        
+        header {
+            background-color: var(--primary);
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .logo-icon {
+            color: var(--accent);
+            font-size: 1.8rem;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .username {
+            font-weight: 500;
+        }
+        
+        .logout-btn {
+            background: none;
+            border: none;
+            color: var(--light);
+            cursor: pointer;
+            font-size: 0.9rem;
+            text-decoration: underline;
+        }
+        
+        main {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        
+        .dashboard-title {
+            margin-bottom: 1.5rem;
+            color: var(--dark);
+        }
+        
+        .ambulance-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .ambulance-card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+        
+        .ambulance-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+        }
+        
+        .card-header {
+            background-color: var(--secondary);
+            color: white;
+            padding: 0.8rem 1.2rem;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .urgent {
+            background-color: var(--danger);
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: var(--success);
+        }
+        
+        .en-route {
+            background-color: var(--warning);
+        }
+        
+        .card-body {
+            padding: 1.2rem;
+        }
+        
+        .info-row {
+            display: flex;
+            margin-bottom: 0.8rem;
+        }
+        
+        .info-label {
+            flex: 1;
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+        
+        .info-value {
+            flex: 2;
+            font-weight: 500;
+        }
+        
+        .eta {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: 600;
+            margin-top: 0.5rem;
+            color: var(--primary);
+        }
+        
+        .stats-bar {
+            height: 5px;
+            width: 100%;
+            background-color: #eee;
+            border-radius: 3px;
+            margin-top: 5px;
+        }
+        
+        .stats-fill {
+            height: 100%;
+            border-radius: 3px;
+        }
+        
+        .critical {
+            background-color: var(--danger);
+        }
+        
+        .stable {
+            background-color: var(--success);
+        }
+        
+        .serious {
+            background-color: var(--warning);
+        }
+        
+        /* Patient details page */
+        .patient-details {
+            display: none;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .details-header {
+            background-color: var(--primary);
+            color: white;
+            padding: 1.2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .back-btn {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 1.5rem;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .action-btn {
+            background-color: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .video-btn {
+            background-color: var(--accent);
+        }
+        
+        .details-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            padding: 1.5rem;
+        }
+        
+        .vitals-panel {
+            padding: 1.2rem;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
+        }
+        
+        .panel-title {
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .update-time {
+            font-size: 0.8rem;
+            color: #7f8c8d;
+            font-weight: normal;
+        }
+        
+        .vitals-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        
+        .vital-card {
+            background-color: white;
+            padding: 0.8rem;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .vital-label {
+            color: #7f8c8d;
+            font-size: 0.85rem;
+            margin-bottom: 0.3rem;
+        }
+        
+        .vital-value {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+        
+        .vital-unit {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+        }
+        
+        .map-container {
+            height: 300px;
+            background-color: #e9e9e9;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #7f8c8d;
+        }
+        
+        .notes-panel {
+            grid-column: span 2;
+            background-color: #f8f9fa;
+            padding: 1.2rem;
+            border-radius: 8px;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
+        }
+        
+        .notes-content {
+            background-color: white;
+            padding: 1rem;
+            border-radius: 6px;
+            min-height: 120px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .video-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0,0,0,0.8);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        
+        .video-wrapper {
+            width: 80%;
+            max-width: 1000px;
+            background-color: var(--dark);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.3);
+        }
+        
+        .video-header {
+            background-color: var(--primary);
+            color: white;
+            padding: 0.8rem 1.2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .close-video {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        
+        .video-streams {
+            display: grid;
+            grid-template-columns: 3fr 1fr;
+            gap: 10px;
+            padding: 10px;
+            height: 600px;
+        }
+        
+        .main-stream {
+            background-color: #000;
+            border-radius: 4px;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #7f8c8d;
+        }
+        
+        .self-stream {
+            background-color: #333;
+            border-radius: 4px;
+            height: 180px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #7f8c8d;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+            justify-content: center;
+        }
+        
+        .control-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: #454545;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .end-call {
+            background-color: var(--danger);
+        }
+    </style>
+    <!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <span class="logo-icon">+</span>
+            <span>ParaMedix</span>
+        </div>
+        <div class="user-info">
+            <div class="user-avatar">DR</div>
+            <span class="username">Dr. Roberts</span>
+            <button class="logout-btn">Logout</button>
+        </div>
+    </header>
+    
+    <main>
+        <div class="ambulance-list" id="ambulanceList">
+            <h1 class="dashboard-title">Incoming Ambulances</h1>
+            <div class="ambulance-cards">
+                <div class="ambulance-card" data-id="AMB-1234" onclick="showPatientDetails('AMB-1234')">
+                    <div class="card-header urgent">
+                        <span>Ambulance #1234</span>
+                        <span class="status-indicator"></span>
+                    </div>
+                    <div class="card-body">
+                        <div class="info-row">
+                            <span class="info-label">Patient:</span>
+                            <span class="info-value">John Doe, 58</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Chief Complaint:</span>
+                            <span class="info-value">Chest Pain, Shortness of Breath</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Condition:</span>
+                            <span class="info-value">Critical</span>
+                        </div>
+                        <div class="stats-bar">
+                            <div class="stats-fill critical" style="width: 90%"></div>
+                        </div>
+                        <div class="eta">
+                            <span>ETA: 8 minutes</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="ambulance-card" data-id="AMB-2345" onclick="showPatientDetails('AMB-2345')">
+                    <div class="card-header">
+                        <span>Ambulance #2345</span>
+                        <span class="status-indicator en-route"></span>
+                    </div>
+                    <div class="card-body">
+                        <div class="info-row">
+                            <span class="info-label">Patient:</span>
+                            <span class="info-value">Sarah Johnson, 42</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Chief Complaint:</span>
+                            <span class="info-value">MVA, Possible Fractures</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Condition:</span>
+                            <span class="info-value">Serious</span>
+                        </div>
+                        <div class="stats-bar">
+                            <div class="stats-fill serious" style="width: 65%"></div>
+                        </div>
+                        <div class="eta">
+                            <span>ETA: 15 minutes</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="ambulance-card" data-id="AMB-3456" onclick="showPatientDetails('AMB-3456')">
+                    <div class="card-header">
+                        <span>Ambulance #3456</span>
+                        <span class="status-indicator en-route"></span>
+                    </div>
+                    <div class="card-body">
+                        <div class="info-row">
+                            <span class="info-label">Patient:</span>
+                            <span class="info-value">Mike Williams, 35</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Chief Complaint:</span>
+                            <span class="info-value">Head Injury, Laceration</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Condition:</span>
+                            <span class="info-value">Stable</span>
+                        </div>
+                        <div class="stats-bar">
+                            <div class="stats-fill stable" style="width: 40%"></div>
+                        </div>
+                        <div class="eta">
+                            <span>ETA: 22 minutes</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="patient-details" id="patientDetails">
+            <div class="details-header">
+                <div class="header-left">
+                    <button class="back-btn" onclick="showAmbulanceList()">←</button>
+                    <h2 id="ambulanceTitle">Ambulance #1234 - John Doe</h2>
+                </div>
+                <div class="header-actions">
+                <a href="http://localhost:3000/", target="_blank">
+                    <button class="action-btn video-btn" >
+                        <span>Video Call</span>
+                    </button>
+                </a>
+                </div>
+            </div>
+            
+            <div class="details-content">
+                <div class="vitals-panel">
+                    <div class="panel-title">
+                        <span>Patient Vitals</span>
+                        <span class="update-time">Updated: 2 mins ago</span>
+                    </div>
+                    <div class="vitals-grid">
+                        <div class="vital-card">
+                            <div class="vital-label">Heart Rate</div>
+                            <div class="vital-value heartrate">112 <span class="vital-unit">bpm</span></div>
+                        </div>
+                        <div class="vital-card">
+                            <div class="vital-label">Blood Pressure</div>
+                            <div class="vital-value bloodpressure">150/95 <span class="vital-unit">mmHg</span></div>
+                        </div>
+                        <div class="vital-card">
+                            <div class="vital-label">SpO2</div>
+                            <div class="vital-value spo2">92 <span class="vital-unit">%</span></div>
+                        </div>
+                        <div class="vital-card">
+                            <div class="vital-label">Respiratory Rate</div>
+                            <div class="vital-value respiratoryrate">24 <span class="vital-unit">bpm</span></div>
+                        </div>
+                        <div class="vital-card">
+                            <div class="vital-label">Temperature</div>
+                            <div class="vital-value temperature">37.8 <span class="vital-unit">°C</span></div>
+                        </div>
+                        <div class="vital-card">
+                            <div class="vital-label">Temp-F</div>
+                            <div class="vital-value temp-f">14</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="vitals-panel">
+                    <div class="panel-title">Location & ETA</div>
+                    <div id="map"></div>
+                    
+                        <div class="card">
+                            <!-- <h2 class="card-title">Nearby Hospitals</h2> -->
+                            <div id="error"></div>
+                            <div id="loading">Detecting your location...</div>
+                            <div id="hospitals-list">
+                                <!-- <div class="hospital-item" onclick="selectHospital(id)"></div> -->
+                            </div>
+                            
+                        
+                    </div>
+                    <div class="eta" style="margin-top: 15px; justify-content: center; font-size: 1.2rem;">
+                        <span>ETA: 8 minutes (2.4 miles away)</span>
+                    </div>
+                </div>
+                
+                <div class="notes-panel">
+                    <div class="panel-title">Paramedic Notes</div>
+                    <div class="notes-content">
+                        58-year-old male with sudden onset of chest pain radiating to left arm, started 45 minutes ago while at rest. Patient has history of hypertension and high cholesterol. Initial ECG shows ST elevation in leads II, III, and aVF. Patient given 325mg aspirin and 0.4mg sublingual nitroglycerin with mild pain relief. IV access established, fluid bolus initiated. Patient is alert and oriented x3.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <div class="video-container" id="videoCall" style="display: none;">
+        <div class="video-wrapper">
+            <div class="video-header">
+                <h3>Video Call - Ambulance #1234</h3>
+                <button class="close-video" onclick="endVideoCall()">×</button>
+            </div>
+            <div class="video-streams">
+                <div class="main-stream">[Ambulance Video Feed]</div>
+                <div>
+                    <div class="self-stream">[Hospital Video Feed]</div>
+                </div>
+            </div>
+        </div>
+        <div class="controls">
+            <button class="control-btn">🎤</button>
+            <button class="control-btn">📷</button>
+            <button class="control-btn end-call" onclick="endVideoCall()">📞</button>
+        </div>
+    </div>
+    
+    <script>
+        let map;
+
+window.addEventListener('load', () => {
+  // Check for geolocation support
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(position => {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+
+      document.getElementById('loading').style.display = 'none';
+
+      // Initialize the map
+      map = L.map('map').setView([lat, lng], 13);
+
+      // Add OpenStreetMap tiles
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      // Add a marker
+      L.marker([lat, lng]).addTo(map)
+        .bindPopup('You are here')
+        .openPopup();
+
+    }, error => {
+      document.getElementById('error').textContent = "Unable to access your location.";
+      document.getElementById('loading').style.display = 'none';
+    });
+  } else {
+    document.getElementById('error').textContent = "Geolocation is not supported by this browser.";
+    document.getElementById('loading').style.display = 'none';
+  }
+});
+         function selectHospital(id) {
+            const hospital = hospitals.find(h => h.id === id);
+            
+            if (!hospital) return;
+            
+            // Set hospital details
+            document.getElementById('selectedHospitalName').textContent = hospital.name;
+            document.getElementById('selectedHospitalDistance').textContent = 
+                'Distance: ' + hospital.distance.toFixed(1) + ' km';
+            document.getElementById('selectedHospitalBeds').textContent = 'Beds: ' + hospital.beds;
+            document.getElementById('selectedHospitalEta').textContent = 'ETA: ' + hospital.eta + ' min';
+            
+            // Add more details if available
+            // document.getElementById('selectedHospitalAddress').textContent = hospital.address;
+            // document.getElementById('selectedHospitalPhone').textContent = hospital.phone;
+
+            // Switch to hospital page
+            document.getElementById('dashboardPage').classList.remove('active');
+            document.getElementById('hospitalPage').classList.add('active');
+            
+            // Center map on selected hospital
+            map.setView([hospital.lat, hospital.lng], 16);
+        }
+
+        function showPatientDetails(ambulanceId) {
+            document.getElementById('ambulanceList').style.display = 'none';
+            document.getElementById('patientDetails').style.display = 'block';
+            
+            // In a real app, you would fetch the specific ambulance data here
+            document.getElementById('ambulanceTitle').textContent = 'Ambulance #1234 - John Doe';
+        }
+        
+        function showAmbulanceList() {
+            document.getElementById('patientDetails').style.display = 'none';
+            document.getElementById('ambulanceList').style.display = 'block';
+        }
+        
+        function startVideoCall() {
+            document.getElementById('videoCall').style.display = 'flex';
+        }
+        
+        function endVideoCall() {
+            document.getElementById('videoCall').style.display = 'none';
+        }
+
+        
+        async function fetchData() {
+  try {
+    const response = await fetch('http://localhost:3005/data');
+    const data = await response.json();
+
+    console.log('Fetched:', data); // Debug log
+
+    document.querySelector('.temperature').textContent = data.value1;
+    document.querySelector('.temp-f').textContent = data.value2;
+    document.querySelector('.heartrate').textContent = data.value7;
+    document.querySelector('.spo2').textContent = data.value8;
+  } catch (err) {
+    console.error('Error fetching data:', err);
+  }
+}
+
+
+    // Refresh data every 1 second
+    setInterval(fetchData, 1000);
+    fetchData(); // initial load
+
+    </script>
+</body>
+</html>

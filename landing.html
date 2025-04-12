@@ -1,0 +1,691 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ParaMedix - Ambulance Dashboard</title>
+    <style>
+        :root {
+            --primary: #1e88e5;
+            --primary-dark: #1565c0;
+            --primary-light: #bbdefb;
+            --danger: #e53935;
+            --warning: #ff9800;
+            --success: #43a047;
+            --light-gray: #f5f5f5;
+            --dark-gray: #424242;
+            --white: #ffffff;
+            --border: #e0e0e0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+                Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+
+        body {
+            background-color: var(--light-gray);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: var(--primary);
+            color: var(--white);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+        }
+
+        .logo-icon {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background-color: var(--white);
+            color: var(--primary);
+            text-align: center;
+            line-height: 24px;
+            margin-right: 8px;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+        }
+
+        .user-name {
+            margin-right: 1rem;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: var(--success);
+            margin-right: 8px;
+        }
+
+        .logout-btn {
+            background: none;
+            border: none;
+            color: var(--white);
+            cursor: pointer;
+            margin-left: 1.5rem;
+            font-size: 0.9rem;
+            text-decoration: underline;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            padding: 1rem;
+            gap: 1rem;
+        }
+
+        .patient-section {
+            flex: 1;
+            background-color: var(--white);
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .map-section {
+            flex: 1.5;
+            background-color: var(--white);
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section-header {
+            padding: 1rem;
+            background-color: var(--primary-light);
+            color: var(--primary-dark);
+            font-weight: 500;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-content {
+            padding: 1rem;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .emergency-tag {
+            background-color: var(--danger);
+            color: var(--white);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--dark-gray);
+            font-weight: 500;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .form-row {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .radio-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .radio-label input {
+            width: auto;
+            margin-right: 0.5rem;
+        }
+
+        #hospitals-list {
+            height: 180px;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+        }
+
+        .hospital-item {
+            display: flex;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .hospital-item:hover {
+            background-color: var(--light-gray);
+        }
+
+        .hospital-item.selected {
+            background-color: var(--primary-light);
+        }
+
+        .hospital-icon {
+            padding: 8px;
+            background-color: var(--primary-light);
+            color: var(--primary);
+            border-radius: 4px;
+            margin-right: 0.75rem;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .hospital-info {
+            flex: 1;
+        }
+
+        .hospital-name {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .hospital-details {
+            display: flex;
+            font-size: 0.85rem;
+            color: var(--dark-gray);
+        }
+
+        .hospital-distance {
+            margin-right: 1rem;
+        }
+
+        .hospital-beds {
+            display: flex;
+            align-items: center;
+        }
+
+        .beds-available {
+            color: var(--success);
+            font-weight: 500;
+            margin-right: 0.25rem;
+        }
+
+        .beds-total {
+            color: var(--dark-gray);
+        }
+
+        .hospital-status {
+            display: flex;
+            align-items: center;
+            font-size: 0.85rem;
+        }
+
+        .status-tag {
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        .status-tag.green {
+            background-color: rgba(67, 160, 71, 0.1);
+            color: var(--success);
+        }
+
+        .status-tag.orange {
+            background-color: rgba(255, 152, 0, 0.1);
+            color: var(--warning);
+        }
+
+        .status-tag.red {
+            background-color: rgba(229, 57, 53, 0.1);
+            color: var(--danger);
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+            background-color: #eee;
+        }
+
+        .action-bar {
+            display: flex;
+            padding: 1rem;
+            border-top: 1px solid var(--border);
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: background-color 0.3s;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: var(--white);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-outline:hover {
+            background-color: var(--primary-light);
+        }
+
+        .btn-danger {
+            background-color: var(--danger);
+            color: var(--white);
+        }
+
+        .btn-danger:hover {
+            background-color: #c62828;
+        }
+
+        .map-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .map-control {
+            background-color: var(--white);
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            font-size: 1.2rem;
+            color: var(--dark-gray);
+        }
+
+        .route-info {
+            background-color: var(--white);
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 1rem;
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            min-width: 200px;
+            z-index: 10;
+            display: none;
+        }
+
+        .route-info.visible {
+            display: block;
+        }
+
+        .route-header {
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .route-details {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .route-label {
+            color: var(--dark-gray);
+            font-size: 0.85rem;
+        }
+
+        .route-value {
+            font-weight: 500;
+        }
+
+        @media (max-width: 768px) {
+            main {
+                flex-direction: column;
+            }
+            
+            .form-row {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <span class="logo-icon">P</span>
+            ParaMedix
+        </div>
+        <div class="user-info">
+            <span class="user-name">Ambulance ID: AMB-2142</span>
+            <div class="status">
+                <span class="status-indicator"></span>
+                <span>Available</span>
+            </div>
+            <button class="logout-btn">Logout</button>
+        </div>
+    </header>
+    
+    <main>
+        <section class="patient-section">
+            <div class="section-header">
+                <h2>Patient Information</h2>
+                <span class="emergency-tag">Emergency</span>
+            </div>
+            <div class="section-content">
+                <form id="patientForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="firstName">First Name</label>
+                            <input type="text" id="firstName" placeholder="Patient's first name">
+                        </div>
+                        <div class="form-group">
+                            <label for="lastName">Last Name</label>
+                            <input type="text" id="lastName" placeholder="Patient's last name">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="age">Age</label>
+                            <input type="number" id="age" placeholder="Patient's age">
+                        </div>
+                        <div class="form-group">
+                            <label for="gender">Gender</label>
+                            <select id="gender">
+                                <option value="">Select gender</option>
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Emergency Type</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="emergencyType" value="trauma">
+                                Trauma
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="emergencyType" value="cardiac">
+                                Cardiac
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="emergencyType" value="respiratory">
+                                Respiratory
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="emergencyType" value="other">
+                                Other
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Criticality Level</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="criticality" value="critical">
+                                Critical
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="criticality" value="unstable">
+                                Unstable
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="criticality" value="stable">
+                                Stable
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="vitalSigns">Vital Signs</label>
+                        <input type="text" id="vitalSigns" placeholder="BP, HR, RR, SpO2, GCS, etc.">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="notes">Additional Notes</label>
+                        <textarea id="notes" placeholder="Describe the patient's condition, medical history, and other relevant information..."></textarea>
+                    </div>
+                </form>
+            </div>
+        </section>
+        
+        <section class="map-section">
+            <div class="section-header">
+                <h2>Hospital Selection & Routing</h2>
+                <span>Your Location: GPS Coordinates (34.0522° N, 118.2437° W)</span>
+            </div>
+            <div class="section-content">
+                <div class="hospital-list">
+                    <div class="hospital-item selected">
+                        <div class="hospital-icon">H</div>
+                        <div class="hospital-info">
+                            <div class="hospital-name">City General Hospital</div>
+                            <div class="hospital-details">
+                                <div class="hospital-distance">1.2 miles</div>
+                                <div class="hospital-beds">
+                                    <span class="beds-available">12</span>
+                                    <span class="beds-total">/ 24 beds</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="hospital-status">
+                            <span class="status-tag green">Available</span>
+                        </div>
+                    </div>
+                    
+                    <div class="hospital-item">
+                        <div class="hospital-icon">H</div>
+                        <div class="hospital-info">
+                            <div class="hospital-name">Memorial Medical Center</div>
+                            <div class="hospital-details">
+                                <div class="hospital-distance">2.5 miles</div>
+                                <div class="hospital-beds">
+                                    <span class="beds-available">5</span>
+                                    <span class="beds-total">/ 18 beds</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="hospital-status">
+                            <span class="status-tag orange">Limited</span>
+                        </div>
+                    </div>
+                    
+                    <div class="hospital-item">
+                        <div class="hospital-icon">H</div>
+                        <div class="hospital-info">
+                            <div class="hospital-name">Saint Luke's Hospital</div>
+                            <div class="hospital-details">
+                                <div class="hospital-distance">3.7 miles</div>
+                                <div class="hospital-beds">
+                                    <span class="beds-available">8</span>
+                                    <span class="beds-total">/ 20 beds</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="hospital-status">
+                            <span class="status-tag green">Available</span>
+                        </div>
+                    </div>
+                    
+                    <div class="hospital-item">
+                        <div class="hospital-icon">H</div>
+                        <div class="hospital-info">
+                            <div class="hospital-name">University Medical Center</div>
+                            <div class="hospital-details">
+                                <div class="hospital-distance">4.1 miles</div>
+                                <div class="hospital-beds">
+                                    <span class="beds-available">2</span>
+                                    <span class="beds-total">/ 30 beds</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="hospital-status">
+                            <span class="status-tag red">Near Capacity</span>
+                        </div>
+                    </div>
+                    
+                    <div class="hospital-item">
+                        <div class="hospital-icon">H</div>
+                        <div class="hospital-info">
+                            <div class="hospital-name">Mercy Hospital</div>
+                            <div class="hospital-details">
+                                <div class="hospital-distance">5.8 miles</div>
+                                <div class="hospital-beds">
+                                    <span class="beds-available">15</span>
+                                    <span class="beds-total">/ 22 beds</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="hospital-status">
+                            <span class="status-tag green">Available</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="map-container">
+                    <img src="/api/placeholder/800/400" alt="Google Maps view showing hospitals" style="width: 100%; height: 100%; object-fit: cover;" />
+                    
+                    <div class="map-controls">
+                        <button class="map-control">+</button>
+                        <button class="map-control">-</button>
+                        <button class="map-control">⟳</button>
+                    </div>
+                    
+                    <div class="route-info visible">
+                        <div class="route-header">Route to City General Hospital</div>
+                        <div class="route-details">
+                            <span class="route-label">Distance</span>
+                            <span class="route-value">1.2 miles</span>
+                        </div>
+                        <div class="route-details">
+                            <span class="route-label">ETA</span>
+                            <span class="route-value">7 minutes</span>
+                        </div>
+                        <div class="route-details">
+                            <span class="route-label">Traffic</span>
+                            <span class="route-value">Light</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="action-bar">
+                <button class="btn btn-outline">Request Bed Reservation</button>
+                <button class="btn btn-primary">Confirm & Start Navigation</button>
+                <button class="btn btn-danger">Send Emergency Alert</button>
+            </div>
+        </section>
+    </main>
+    
+    <script>
+        // Toggle hospital selection
+        const hospitalItems = document.querySelectorAll('.hospital-item');
+        
+        hospitalItems.forEach(item => {
+            item.addEventListener('click', () => {
+                hospitalItems.forEach(hospital => hospital.classList.remove('selected'));
+                item.classList.add('selected');
+                
+                // Update route info with selected hospital name
+                const hospitalName = item.querySelector('.hospital-name').textContent;
+                const routeHeader = document.querySelector('.route-header');
+                routeHeader.textContent = `Route to ${hospitalName}`;
+                
+                // Show route info
+                const service = new google.maps.places.PlacesService(map);
+                const request = {
+                    location: { lat: ambulanceLat, lng: ambulanceLng },
+                    radius: '5000',  // Search within 5km
+                    type: ['hospital'],
+                };
+
+                service.nearbySearch(request, (results, status) => {
+                if (status === google.maps.places.PlacesServiceStatus.OK) {
+                    results.forEach(hospital => {
+                     // Display hospital details (name, address, etc.)
+                    });
+                 }
+                });
+
+            });
+        });
+    </script>
+</body>
+</html>

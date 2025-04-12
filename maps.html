@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Nearby Hospitals Finder</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        #map {
+            height: 400px;
+            width: 100%;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        #hospitals-list {
+            width: 100%;
+        }
+        .hospital-card {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .hospital-name {
+            font-weight: bold;
+            font-size: 1.2em;
+            margin-bottom: 5px;
+        }
+        .hospital-details {
+            display: flex;
+            justify-content: space-between;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        #loading {
+            text-align: center;
+            padding: 20px;
+        }
+        #error {
+            color: red;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Nearby Hospitals</h1>
+    <div id="error"></div>
+    <div id="map"></div>
+    <div id="loading">Detecting your location...</div>
+    <div id="hospitals-list"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Global variables
+        let map;
+        let userLocation;
+        const hospitalIcon = L.icon({
+            iconUrl: 'https://cdn-icons-png.flaticon.com/512/2076/2076218.png',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32]
+        });
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+            getUserLocation();
+        });
+
+        function initMap() {
+            map = L.map('map');
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+        }
+
+        function getUserLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        userLocation = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                        map.setView([userLocation.lat, userLocation.lng], 14);
+                        L.marker([userLocation.lat, userLocation.lng])
+                            .addTo(map)
+                            .bindPopup("Your Location")
+                            .openPopup();
+                        findNearbyHospitals();
+                    },
+                    error => {
+                        document.getElementById('error').textContent = 
+                            `Error getting location: ${error.message}. Using default location.`;
+                        // Fallback to default location (London)
+                        userLocation = { lat: 51.505, lng: -0.09 };
+                        map.setView([userLocation.lat, userLocation.lng], 14);
+                        findNearbyHospitals();
+                    }
+                );
+            } else {
+                document.getElementById('error').textContent = 
+                    "Geolocation is not supported by this browser. Using default location.";
+                userLocation = { lat: 51.505, lng: -0.09 };
+                map.setView([userLocation.lat, userLocation.lng], 14);
+                findNearbyHospitals();
+            }
+        }
+
+        function findNearbyHospitals() {
+            document.getElementById('loading').textContent = "Searching for nearby hospitals...";
+            
+            // Overpass API query to find hospitals within 5km radius
+            const radius = 5000; // meters
+            const overpassUrl = `https://overpass-api.de/api/interpreter?data=
+                [out:json];
+                (
+                    node[amenity=hospital](around:${radius},${userLocation.lat},${userLocation.lng});
+                    way[amenity=hospital](around:${radius},${userLocation.lat},${userLocation.lng});
+                    relation[amenity=hospital](around:${radius},${userLocation.lat},${userLocation.lng});
+                );
+                out center;
+                >;
+                out skel qt;`;
+
+            fetch(overpassUrl)
+                .then(response => response.json())
+                .then(data => processHospitalData(data.elements))
+                .catch(error => {
+                    document.getElementById('error').textContent += 
+                        ` Error fetching hospitals: ${error.message}`;
+                    document.getElementById('loading').textContent = 
+                        "Could not load hospital data. Showing sample data instead.";
+                    // Fallback to sample data
+                    const sampleHospitals = [
+                        { 
+                            name: "City General Hospital", 
+                            lat: userLocation.lat + 0.005, 
+                            lng: userLocation.lng + 0.005, 
+                            tags: { "capacity": "12" } 
+                        },
+                        { 
+                            name: "Mercy Medical Center", 
+                            lat: userLocation.lat - 0.004, 
+                            lng: userLocation.lng - 0.006, 
+                            tags: { "capacity": "5" } 
+                        }
+                    ];
+                    processHospitalData(sampleHospitals);
+                });
+        }
+
+        function processHospitalData(elements) {
+            const hospitals = [];
+            
+            elements.forEach(element => {
+                if (element.tags && element.tags.amenity === "hospital") {
+                    let lat, lng, name;
+                    
+                    // Handle different Overpass element types
+                    if (element.type === "node") {
+                        lat = element.lat;
+                        lng = element.lon;
+                    } else if (element.center) {
+                        lat = element.center.lat;
+                        lng = element.center.lon;
+                    }
+                    
+                    name = element.tags.name || "Unnamed Hospital";
+                    const beds = element.tags.capacity || element.tags.beds || "Unknown";
+                    
+                    if (lat && lng) {
+                        hospitals.push({
+                            name: name,
+                            lat: lat,
+                            lng: lng,
+                            beds: beds
+                        });
+                    }
+                }
+            });
+
+            if (hospitals.length === 0) {
+                document.getElementById('loading').textContent = 
+                    "No hospitals found nearby. Try a larger search area.";
+                return;
+            }
+
+            // Calculate distances and ETAs
+            const hospitalsWithDistance = hospitals.map(hospital => {
+                const distance = calculateDistance(
+                    userLocation.lat, 
+                    userLocation.lng,
+                    hospital.lat,
+                    hospital.lng
+                );
+                
+                // ETA calculation (1 min per 0.3 km + 2 min base)
+                const etaMinutes = Math.round(2 + (distance / 0.3));
+                
+                return {
+                    ...hospital,
+                    distance: distance,
+                    eta: etaMinutes
+                };
+            }).sort((a, b) => a.distance - b.distance);
+
+            displayHospitals(hospitalsWithDistance);
+        }
+
+        function displayHospitals(hospitals) {
+            document.getElementById('loading').style.display = 'none';
+            
+            // Add markers to map
+            hospitals.forEach(hospital => {
+                L.marker([hospital.lat, hospital.lng], { icon: hospitalIcon })
+                    .addTo(map)
+                    .bindPopup(`
+                        <b>${hospital.name}</b><br>
+                        Distance: ${hospital.distance.toFixed(1)} km<br>
+                        Beds: ${hospital.beds}<br>
+                        ETA: ${hospital.eta} min
+                    `);
+            });
+            
+            // Display in list
+            const hospitalsList = document.getElementById('hospitals-list');
+            hospitals.forEach(hospital => {
+                const card = document.createElement('div');
+                card.className = 'hospital-card';
+                card.innerHTML = `
+                    <div class="hospital-name">${hospital.name}</div>
+                    <div class="hospital-details">
+                        <span>Distance: ${hospital.distance.toFixed(1)} km</span>
+                        <span>Beds: ${hospital.beds}</span>
+                        <span>ETA: ${hospital.eta} min</span>
+                    </div>
+                `;
+                hospitalsList.appendChild(card);
+            });
+        }
+
+        // Haversine distance calculation (in km)
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+    </script>
+</body>
+</html>
